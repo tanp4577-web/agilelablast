@@ -41,14 +41,17 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/calculator:${{ steps.vars.outputs.sha_short }}
           ${{ secrets.DOCKERHUB_USERNAME }}/calculator:latest
 
-    - name: (5) Deployment - Setup Kubernetes Simulator
-      uses: engineerd/setup-kind@v0.5.0
+    - name: (5) Deployment - Setup Kubernetes Simulator (Official Kind)
+      uses: kubernetes-sigs/kind-action@v1.12.0
 
     - name: Inject Unique Tag & Deploy Manifests Separately
       run: |
-        # Safely replaces the placeholder inside deployment.yaml with variables dynamically
+        # Injects your fetched username and generated short SHA tag into the deployment manifest dynamically
         sed -i "s|DOCKERHUB_USERNAME/calculator:tag-placeholder|${{ secrets.DOCKERHUB_USERNAME }}/calculator:${{ steps.vars.outputs.sha_short }}|g" deployment.yaml
         
         kubectl apply -f deployment.yaml
         kubectl apply -f service.yaml
-        kubectl get svc
+        
+        # Verify the resources running inside the runner cluster
+        kubectl get deployment calculator-deployment
+        kubectl get svc calculator-service
