@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: (1 & 2) Checkout Source Code
-      uses: actions/actions@v4   # Note: For some enterprise/older runners use actions/checkout@v4, actions/actions@v4 is stable here
+      uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v5
