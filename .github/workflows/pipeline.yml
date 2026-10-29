@@ -8,16 +8,10 @@ jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
     steps:
-    # -------------------------------------------------------------
-    # STAGE 1 & 2: SOURCE CODE & VERSION CONTROL
-    # -------------------------------------------------------------
     - name: (1 & 2) Checkout Source Code
       uses: actions/checkout@v4
 
-    # -------------------------------------------------------------
-    # STAGE 3: CONTINUOUS INTEGRATION (Testing)
-    # -------------------------------------------------------------
-    - name: Set up Python Environment
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
@@ -25,14 +19,10 @@ jobs:
     - name: (3) CI - Install Dependencies & Run Automated Tests
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pytest
+        pip install -r requirements.txt
         pytest
 
-    # -------------------------------------------------------------
-    # STAGE 4: BUILD (Docker Containerization)
-    # -------------------------------------------------------------
-    - name: Generate Unique Image Tag (Short SHA)
+    - name: Generate Unique Image Tag
       id: vars
       run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
@@ -51,19 +41,14 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/calculator:${{ steps.vars.outputs.sha_short }}
           ${{ secrets.DOCKERHUB_USERNAME }}/calculator:latest
 
-    # -------------------------------------------------------------
-    # STAGE 5: DEPLOYMENT (Kubernetes Orchestration)
-    # -------------------------------------------------------------
-    - name: (5) Setup Local Kubernetes Cluster (Kind)
+    - name: (5) Deployment - Setup Kubernetes Simulator
       uses: engineerd/setup-kind@v0.5.0
 
-    - name: Inject Unique Tag & Deploy to Kubernetes
+    - name: Inject Unique Tag & Deploy Manifests Separately
       run: |
-        # Replaces placeholder in k8s manifest with the unique push tag
-        sed -i "s|DOCKERHUB_USERNAME/calculator:v1.0.0|${{ secrets.DOCKERHUB_USERNAME }}/calculator:${{ steps.vars.outputs.sha_short }}|g" k8s.yaml
+        # Safely replaces the placeholder inside deployment.yaml with variables dynamically
+        sed -i "s|DOCKERHUB_USERNAME/calculator:tag-placeholder|${{ secrets.DOCKERHUB_USERNAME }}/calculator:${{ steps.vars.outputs.sha_short }}|g" deployment.yaml
         
-        kubectl apply -f k8s.yaml
-        
-        # Verify Resources Are Rolling Out Successfully
-        kubectl rollout status deployment/calculator-deployment
-        kubectl get service calculator-service
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
+        kubectl get svc
